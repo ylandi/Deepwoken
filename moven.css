@@ -1,0 +1,29 @@
+body{
+    background-color: rgb(44, 44, 44);
+}
+
+header{
+    background-color: rgb(0, 0, 0);
+    border-radius: 10px;
+    color: azure;
+    display: flex;
+    justify-content: space-between;
+    height: 57px;
+    position: fixed;
+}
+
+.more{
+    word-spacing: 10px;
+     
+}
+
+.bon{
+    display: flex;
+}
+
+.smurf{
+   background: azure;
+    width: 150px;
+    height: 150px;
+
+}

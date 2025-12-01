@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<title>Шахматы + Шашки — единый интерфейс (полная версия)</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  :root{
+    --bg:#0f0b16; --panel:#1b1026; --accent:#7d3fff; --muted:#cfc3e8; --white:#fff;
+    --lightTile:#ecdfff; --darkTile:#4b2b57;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;font-family:Inter, "Segoe UI", Arial, sans-serif;background:linear-gradient(180deg,#0b0710 0%, #151019 100%);color:var(--muted);
+    display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:18px;
+  }
+  header{width:100%;max-width:1200px;padding:14px 10px;margin-bottom:10px;text-align:center}
+  h1{margin:0;color:var(--white);font-size:20px;letter-spacing:0.3px}
+  .controls{background:var(--panel);padding:12px;border-radius:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center;max-width:1200px;margin-bottom:12px}
+  label{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+  select,input,button{padding:8px;border-radius:8px;border:0;background:#2a2033;color:var(--white);min-width:120px}
+  button.primary{background:var(--accent);font-weight:600}
+  #boardWrap{display:flex;gap:16px;align-items:flex-start;width:100%;max-width:1200px}
+  #board{border-collapse:collapse;box-shadow:0 10px 30px rgba(0,0,0,.6);border-radius:8px;overflow:hidden}
+  td{width:64px;height:64px;text-align:center;vertical-align:middle;font-size:36px;cursor:pointer;user-select:none;padding:0;transition:transform .06s ease}
+  td:hover{transform:translateY(-2px)}
+  .selected{outline:3px solid rgba(255,223,93,0.95);outline-offset:-3px}
+  .highlight{box-shadow:inset 0 0 0 4px rgba(0,255,0,.12)}
+  .sideBar{display:flex;flex-direction:column;gap:8px;min-width:260px}
+  .timer{padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;text-align:center}
+  .small{font-size:13px;color:#cfc9de}
+  footer{margin-top:18px;color:#9c93ae;font-size:13px}
+  .whitePiece{color:var(--white);text-shadow:0 0 6px rgba(255,255,255,0.06);font-weight:700}
+  .blackPiece{color:#0b0b0b;text-shadow:0 0 2px rgba(0,0,0,0.6);font-weight:700}
+  .controls .right{margin-left:auto}
+  .status{padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);color:var(--muted);font-size:14px}
+  @media (max-width:980px){
+    #boardWrap{flex-direction:column;align-items:center}
+    .sideBar{flex-direction:row;flex-wrap:wrap;justify-content:center}
+    td{width:48px;height:48px;font-size:28px}
+  }
+</style>
+</head>
+<body>
+<header><h1>♟ Шахматы / ⛀ Шашки — единый интерфейс</h1></header>
+
+<div class="controls">
+  <label>Игра:
+    <select id="gameType">
+      <option value="chess" selected>Шахматы</option>
+      <option value="checkers">Шашки</option>
+    </select>
+  </label>
+
+  <label>Режим:
+    <select id="mode">
+      <option value="pvp">PvP (на одном устройстве)</option>
+      <option value="pve">PvE (против бота)</option>
+    </select>
+  </label>
+
+  <label>Игрок:
+    <select id="playerColor">
+      <option value="white" selected>Игрок — Белые</option>
+      <option value="black">Игрок — Чёрные</option>
+    </select>
+  </label>
+
+  <label>Уровень бота:
+    <select id="botLevel">
+      <option value="1">1 — Лёгкий</option>
+      <option value="2" selected>2 — Средний</option>
+      <option value="3">3 — Сильный</option>
+    </select>
+  </label>
+
+  <label>Доска:
+    <select id="boardColor">
+      <option value="classic">Классика</option>
+      <option value="violet" selected>Фиолет</option>
+      <option value="green">Зелёная</option>
+    </select>
+  </label>
+
+  <label>Фигуры:
+    <select id="pieceStyle">
+      <option value="emoji" selected>Эмодзи</option>
+      <option value="bw">Чёрно-белые</option>
+    </select>
+  </label>
+
+  <label>Время (мин):
+    <select id="gameTime">
+      <option value="0">∞</option>
+      <option value="5">5</option>
+      <option value="10" selected>10</option>
+      <option value="30">30</option>
+    </select>
+  </label>
+
+  <div class="right" style="display:flex;gap:8px;align-items:center">
+    <button id="startBtn" class="primary">Новая игра</button>
+    <button id="undoBtn" disabled>Отменить</button>
+  </div>
+</div>
+
+<div id="boardWrap">
+  <table id="board" aria-label="Игровая доска"></table>
+
+  <div class="sideBar">
+    <div class="timer" id="whiteTimer">Белые: <strong id="whiteTime">—</strong></div>
+    <div class="timer" id="blackTimer">Чёрные: <strong id="blackTime">—</strong></div>
+    <div class="status small">Ход: <span id="turnLabel">—</span></div>
+    <div class="status small">Инфо: <span id="info">Готов</span></div>
+    <div style="display:flex;gap:8px">
+      <button id="resignBtn">Сдаться</button>
+      <button id="toMenuBtn">Меню</button>
+    </div>
+  </div>
+</div>
+
+<footer>Реализовано: шахматы — съедение короля = победа, базовая рокировка; шашки — победа только при полном уничтожении противника, цепные съедания.</footer>
+
+<script>
+/* ---------------- Constants ---------------- */
+const PIECES_EMOJI = {
+  "P":"♙","R":"♖","N":"♘","B":"♗","Q":"♕","K":"♔",
+  "p":"♟","r":"♜","n":"♞","b":"♝","q":"♛","k":"♚",
+  "w_man":"⛀","b_man":"⛂","w_king":"⛁","b_king":"⛃"
+};
+const PIECES_BW = {
+  "P":"P","R":"R","N":"N","B":"B","Q":"Q","K":"K",
+  "p":"p","r":"r","n":"n","b":"b","q":"q","k":"k",
+  "w_man":"w","b_man":"b","w_king":"W","b_king":"B"
+};
+
+/* ---------------- State ---------------- */
+let board = [];              // 8x8
+let gameType = 'chess';
+let pieceStyle = 'emoji';
+let boardColor = 'violet';
+let mode = 'pvp';
+let botLevel = 2;
+let playerPlaysWhite = true;
+let whiteTurn = true;
+let selected = null;
+let moveHistory = [];
+let timerInterval = null;
+let whiteTime = 0, blackTime = 0;
+let gameOver = false;
+
+// for castling flags in chess
+let whiteKingMoved=false, blackKingMoved=false;
+let whiteRookA_moved=false, whiteRookH_moved=false;
+let blackRookA_moved=false, blackRookH_moved=false;
+
+const boardEl = document.getElementById('board');
+const infoEl = document.getElementById('info');
+const turnLabel = document.getElementById('turnLabel');
+const whiteTimeEl = document.getElementById('whiteTime');
+const blackTimeEl = document.getElementById('blackTime');
+const undoBtn = document.getElementById('undoBtn');
+
+/* ---------------- Utilities ---------------- */
+function cloneBoard(b){ return b.map(r=>r.slice()); }
+function inBounds(r,c){ return r>=0 && r<8 && c>=0 && c<8; }
+function isWhitePiece(p){
+  if(gameType==='chess'){ if(!p || p==='.') return false; return p === p.toUpperCase(); }
+  else { if(!p || p==='.') return false; return p.startsWith('w_'); }
+}
+function isBlackPiece(p){
+  if(gameType==='chess'){ if(!p || p==='.') return false; return p === p.toLowerCase(); }
+  else { if(!p || p==='.') return false; return p.startsWith('b_'); }
+}
+
+/* ---------------- Setup boards ---------------- */
+function setupChessBoard(){
+  board = [
+    ["r","n","b","q","k","b","n","r"],
+    ["p","p","p","p","p","p","p","p"],
+    [".",".",".",".",".",".",".","."],
+    [".",".",".",".",".",".",".","."],
+    [".",".",".",".",".",".",".","."],
+    [".",".",".",".",".",".",".","."],
+    ["P","P","P","P","P","P","P","P"],
+    ["R","N","B","Q","K","B","N","R"]
+  ];
+  // reset castling flags
+  whiteKingMoved = blackKingMoved = false;
+  whiteRookA_moved = whiteRookH_moved = false;
+  blackRookA_moved = blackRookH_moved = false;
+}
+
+function setupCheckersBoard(){
+  board = Array.from({length:8},()=>Array(8).fill('.'));
+  for(let r=0;r<3;r++){
+    for(let c=0;c<8;c++){
+      if((r+c)%2===1) board[r][c] = 'b_man';
+    }
+  }
+  for(let r=5;r<8;r++){
+    for(let c=0;c<8;c++){
+      if((r+c)%2===1) board[r][c] = 'w_man';
+    }
+  }
+}
+
+/* ---------------- Render ---------------- */
+function render(){
+  boardEl.innerHTML = '';
+  const pieces = pieceStyle === 'emoji' ? PIECES_EMOJI : PIECES_BW;
+  for(let r=0;r<8;r++){
+    const row = boardEl.insertRow();
+    for(let c=0;c<8;c++){
+      const cell = row.insertCell();
+      let light='#eeddc5', dark='#6b4f6b';
+      if(boardColor==='classic'){ light='#f0d9b5'; dark='#b58863'; }
+      else if(boardColor==='violet'){ light='#ecdfff'; dark='#4b2b57'; }
+      else if(boardColor==='green'){ light='#cfe8d8'; dark='#3b6b48'; }
+      cell.style.background = ((r+c)%2===0) ? light : dark;
+      cell.style.width = '64px'; cell.style.height='64px';
+      const p = board[r][c];
+      if(p && p !== '.'){
+        let label = p;
+        if(pieces[p]) label = pieces[p];
+        cell.textContent = label;
+        if(isWhitePiece(p)) cell.className = 'whitePiece';
+        else cell.className = 'blackPiece';
+      } else {
+        cell.textContent = '';
+        cell.className = '';
+      }
+      cell.onclick = ()=>onCellClick(r,c);
+      if(selected && selected.r===r && selected.c===c) cell.classList.add('selected');
+      if(selected){
+        const moves = getLegalMoves(selected.r, selected.c);
+        for(const m of moves) if(m.r===r && m.c===c) cell.classList.add('highlight');
+      }
+    }
+  }
+  turnLabel.textContent = gameOver ? 'Игра окончена' : (whiteTurn ? 'Белые' : 'Чёрные');
+  whiteTimeEl.textContent = whiteTime>0 ? (whiteTime + ' с') : (whiteTime===0? '—' : '∞');
+  blackTimeEl.textContent = blackTime>0 ? (blackTime + ' с') : (blackTime===0? '—' : '∞');
+  undoBtn.disabled = moveHistory.length === 0 || gameOver;
+}
+
+/* ---------------- Chess rules (basic) ---------------- */
+function clearPath(b,sr,sc,tr,tc){
+  const dr = Math.sign(tr-sr), dc = Math.sign(tc-sc);
+  let r = sr + dr, c = sc + dc;
+  while(r!==tr || c!==tc){
+    if(b[r][c] !== '.') return false;
+    r+=dr; c+=dc;
+  }
+  return true;
+}
+
+function canMoveChess(sr,sc,tr,tc){
+  if(!inBounds(sr,sc) || !inBounds(tr,tc)) return false;
+  if(sr===tr && sc===tc) return false;
+  const piece = board[sr][sc];
+  if(!piece || piece==='.') return false;
+  const target = board[tr][tc];
+  if(target !== '.' && (isWhitePiece(target) === isWhitePiece(piece))) return false;
+  const dr = tr - sr, dc = tc - sc, absR = Math.abs(dr), absC = Math.abs(dc);
+  const p = piece.toLowerCase();
+
+  if(p === 'p'){
+    if(piece === piece.toUpperCase()){
+      if(dc===0 && dr===-1 && board[tr][tc]==='.') return true;
+      if(dc===0 && dr===-2 && sr===6 && board[sr-1][sc]==='.' && board[tr][tc]==='.') return true;
+      if(Math.abs(dc)===1 && dr===-1 && board[tr][tc] !== '.' && isBlackPiece(board[tr][tc])) return true;
+    } else {
+      if(dc===0 && dr===1 && board[tr][tc]==='.') return true;
+      if(dc===0 && dr===2 && sr===1 && board[sr+1][sc]==='.' && board[tr][tc]==='.') return true;
+      if(Math.abs(dc)===1 && dr===1 && board[tr][tc] !== '.' && isWhitePiece(board[tr][tc])) return true;
+    }
+    return false;
+  }
+
+  if(p === 'r') return (dr===0 || dc===0) && clearPath(board,sr,sc,tr,tc);
+  if(p === 'b') return (absR===absC) && clearPath(board,sr,sc,tr,tc);
+  if(p === 'q') return (dr===0||dc===0||absR===absC) && clearPath(board,sr,sc,tr,tc);
+  if(p === 'n') return (absR===2 && absC===1) || (absR===1 && absC===2);
+  if(p === 'k'){
+    // normal king move
+    if(absR<=1 && absC<=1) return true;
+    // castling: king hasn't moved, rook hasn't moved, path empty, move is two squares horizontally
+    if(absR===0 && absC===2){
+      // white king castling conditions
+      if(piece === 'K' && !whiteKingMoved){
+        // King side (h-rook) if moving from e1 (7,4) to g1 (7,6)
+        if(sc === 4 && sr === 7){
+          // king side
+          if(tc === 6 && !whiteRookH_moved && board[7][7]==='R' && board[7][5]==='.' && board[7][6]==='.') return true;
+          // queen side to c1
+          if(tc === 2 && !whiteRookA_moved && board[7][0]==='R' && board[7][1]==='.' && board[7][2]==='.' && board[7][3]==='.') return true;
+        }
+      }
+      // black king castling
+      if(piece === 'k' && !blackKingMoved){
+        if(sc === 4 && sr === 0){
+          if(tc === 6 && !blackRookH_moved && board[0][7]==='r' && board[0][5]==='.' && board[0][6]==='.') return true;
+          if(tc === 2 && !blackRookA_moved && board[0][0]==='r' && board[0][1]==='.' && board[0][2]==='.' && board[0][3]==='.') return true;
+        }
+      }
+    }
+    return false;
+  }
+  return false;
+}
+
+function getChessMoves(sr,sc){
+  const moves = [];
+  for(let tr=0;tr<8;tr++) for(let tc=0;tc<8;tc++){
+    if(canMoveChess(sr,sc,tr,tc)) moves.push({r:tr,c:tc});
+  }
+  return moves;
+}
+
+/* ---------------- Checkers rules (with chain captures) ---------------- */
+function getCheckersMoves(sr,sc){
+  const piece = board[sr][sc];
+  if(!piece || piece=='.') return [];
+  const moves = [];
+  const dirs = [];
+  const isKing = piece.endsWith('_king');
+  if(isWhitePiece(piece)){
+    if(isKing){ dirs.push([-1,-1],[-1,1],[1,-1],[1,1]); } else dirs.push([-1,-1],[-1,1]);
+  } else {
+    if(isKing){ dirs.push([-1,-1],[-1,1],[1,-1],[1,1]); } else dirs.push([1,-1],[1,1]);
+  }
+
+  const captures = [];
+  function tryJump(r,c,chain,boardState){
+    let found = false;
+    for(const d of dirs){
+      const mr = r + d[0], mc = c + d[1];
+      const tr = r + 2*d[0], tc = c + 2*d[1];
+      if(inBounds(tr,tc) && inBounds(mr,mc)){
+        const mid = boardState[mr][mc], dest = boardState[tr][tc];
+        if(dest === '.' && mid !== '.' && (isWhitePiece(mid) !== isWhitePiece(piece))){
+          // simulate
+          const nb = boardState.map(rr=>rr.slice());
+          nb[tr][tc] = nb[r][c]; nb[r][c] = '.'; nb[mr][mc] = '.';
+          if(nb[tr][tc] === 'w_man' && tr === 0) nb[tr][tc] = 'w_king';
+          if(nb[tr][tc] === 'b_man' && tr === 7) nb[tr][tc] = 'b_king';
+          const deeper = tryJump(tr,tc,chain.concat([{r:tr,c:tc,capturedAt:[mr,mc]}]), nb);
+          if(!deeper) captures.push(chain.concat([{r:tr,c:tc,capturedAt:[mr,mc]}]));
+          found = true;
+        }
+      }
+    }
+    return found;
+  }
+  tryJump(sr,sc,[],board);
+  if(captures.length){
+    // return landing squares with full chains
+    const unique = [];
+    for(const ch of captures){
+      const last = ch[ch.length-1];
+      unique.push({r:last.r, c:last.c, chain: ch});
+    }
+    return unique;
+  }
+
+  // if any capture exists anywhere for side to move -> plain moves not allowed
+  const hasAnyCapture = existsAnyCapture();
+  if(!hasAnyCapture){
+    for(const d of dirs){
+      const tr = sr + d[0], tc = sc + d[1];
+      if(inBounds(tr,tc) && board[tr][tc] === '.') moves.push({r:tr,c:tc});
+    }
+  }
+  return moves;
+}
+
+function existsAnyCapture(){
+  for(let r=0;r<8;r++){
+    for(let c=0;c<8;c++){
+      const p = board[r][c];
+      if(p=='.') continue;
+      const isWhite = isWhitePiece(p);
+      if((whiteTurn && isWhite) || (!whiteTurn && !isWhite)){
+        const dirs = p.endsWith('_king') ? [[-1,-1],[-1,1],[1,-1],[1,1]] : (isWhite? [[-1,-1],[-1,1]] : [[1,-1],[1,1]]);
+        for(const d of dirs){
+          const mr = r + d[0], mc = c + d[1];
+          const tr = r + 2*d[0], tc = c + 2*d[1];
+          if(inBounds(tr,tc) && inBounds(mr,mc)){
+            const mid = board[mr][mc], dest = board[tr][tc];
+            if(dest === '.' && mid !== '.' && (isWhitePiece(mid) !== isWhite)) return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
+}
+
+/* ---------------- Make move (both games) ---------------- */
+function makeMove(sr,sc,tr,tc, extra={}){
+  moveHistory.push({board: cloneBoard(board), whiteTurn, gameType, // save castling flags too
+    whiteKingMoved, blackKingMoved, whiteRookA_moved, whiteRookH_moved, blackRookA_moved, blackRookH_moved
+  });
+
+  if(gameType === 'chess'){
+    const piece = board[sr][sc];
+    let movedPiece = piece;
+    // promotion
+    if(piece === 'P' && tr === 0) movedPiece = 'Q';
+    if(piece === 'p' && tr === 7) movedPiece = 'q';
+    const captured = board[tr][tc];
+    // handle castling: if king moves two squares horizontally, move rook accordingly
+    if(piece === 'K' && Math.abs(tc - sc) === 2){
+      // white castling
+      if(sc === 4 && sr === 7 && tr === 7){
+        if(tc === 6){ // king side
+          board[7][6] = 'K'; board[7][5] = 'R'; board[7][4] = '.'; board[7][7] = '.';
+        } else if(tc === 2){ // queen side
+          board[7][2] = 'K'; board[7][3] = 'R'; board[7][4] = '.'; board[7][0] = '.';
+        }
+      } else if(sc === 4 && sr === 0 && tr === 0 && piece === 'k'){
+        if(tc === 6){ board[0][6] = 'k'; board[0][5] = 'r'; board[0][4] = '.'; board[0][7] = '.'; }
+        else if(tc === 2){ board[0][2] = 'k'; board[0][3] = 'r'; board[0][4] = '.'; board[0][0] = '.'; }
+      } else {
+        // fallback - normal move if weird
+        board[tr][tc] = movedPiece; board[sr][sc] = '.';
+      }
+      // mark kings and rooks moved
+      if(piece === 'K') whiteKingMoved = true;
+      if(piece === 'k') blackKingMoved = true;
+      whiteRookA_moved = whiteRookH_moved = whiteKingMoved;
+      blackRookA_moved = blackRookH_moved = blackKingMoved;
+    } else {
+      // normal move
+      board[tr][tc] = movedPiece; board[sr][sc] = '.';
+      // update castling flags if rook or king moved or rook captured
+      if(piece === 'K') whiteKingMoved = true;
+      if(piece === 'k') blackKingMoved = true;
+      if(piece === 'R'){
+        if(sr === 7 && sc === 0) whiteRookA_moved = true;
+        if(sr === 7 && sc === 7) whiteRookH_moved = true;
+      }
+      if(piece === 'r'){
+        if(sr === 0 && sc === 0) blackRookA_moved = true;
+        if(sr === 0 && sc === 7) blackRookH_moved = true;
+      }
+      // if rook was captured, update flags
+      if(captured === 'R' && tr === 7 && tc === 0) whiteRookA_moved = true;
+      if(captured === 'R' && tr === 7 && tc === 7) whiteRookH_moved = true;
+      if(captured === 'r' && tr === 0 && tc === 0) blackRookA_moved = true;
+      if(captured === 'r' && tr === 0 && tc === 7) blackRookH_moved = true;
+    }
+    // if king captured -> end game
+    if(board[tr][tc] === 'K' && false){} // placeholder (we check captured earlier)
+    if(captured === 'K' || captured === 'k'){
+      render();
+      endGame(whiteTurn ? 'Белые' : 'Чёрные', 'Король съеден');
+      return;
+    }
+  } else {
+    // checkers
+    const piece = board[sr][sc];
+    if(extra && extra.chain){
+      let curR = sr, curC = sc;
+      board[curR][curC] = '.';
+      for(const step of extra.chain){
+        const destR = step.r, destC = step.c;
+        const midR = step.capturedAt[0], midC = step.capturedAt[1];
+        board[midR][midC] = '.';
+        curR = destR; curC = destC;
+      }
+      board[curR][curC] = piece;
+      if(piece === 'w_man' && curR === 0) board[curR][curC] = 'w_king';
+      if(piece === 'b_man' && curR === 7) board[curR][curC] = 'b_king';
+      // After chain, we do NOT automatically switch turn if there are more captures for the same piece,
+      // but our chains include maximal captures, so turn will switch after applying entire chain.
+    } else {
+      board[tr][tc] = board[sr][sc]; board[sr][sc] = '.';
+      if(board[tr][tc] === 'w_man' && tr === 0) board[tr][tc] = 'w_king';
+      if(board[tr][tc] === 'b_man' && tr === 7) board[tr][tc] = 'b_king';
+    }
+  }
+}
+
+/* ---------------- End game ---------------- */
+function endGame(winner, reason=''){
+  gameOver = true;
+  clearInterval(timerInterval);
+  infoEl.textContent = `Победа: ${winner}` + (reason ? ` (${reason})` : '');
+  turnLabel.textContent = 'Игра окончена';
+  undoBtn.disabled = true;
+  setTimeout(()=> { alert(`Игра окончена. Победили: ${winner}${reason ? ' — ' + reason : ''}`); }, 30);
+}
+
+/* ---------------- Check end conditions ---------------- */
+function checkEnd(){
+  if(gameType === 'chess'){
+    // chess: game ends when king captured (we already handle on capture) OR if side has no pieces/have no moves -> consider as loss
+    let whiteCount=0, blackCount=0, whiteHasMove=false, blackHasMove=false;
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+      const p = board[r][c];
+      if(!p||p=='.') continue;
+      if(isWhitePiece(p)){ whiteCount++; if(!whiteHasMove){ const m = getLegalMoves(r,c); if(m && m.length) whiteHasMove=true; } }
+      else { blackCount++; if(!blackHasMove){ const m = getLegalMoves(r,c); if(m && m.length) blackHasMove=true; } }
+    }
+    if(whiteCount === 0 || !whiteHasMove){ endGame('Чёрные', 'нет ходов/фигур'); return true; }
+    if(blackCount === 0 || !blackHasMove){ endGame('Белые', 'нет ходов/фигур'); return true; }
+    return false;
+  } else {
+    // checkers: user requested "пока всех не съешь - не выиграешь"
+    // so victory only when opponent piece count == 0
+    let whiteCount=0, blackCount=0;
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+      const p = board[r][c];
+      if(!p||p=='.') continue;
+      if(isWhitePiece(p)) whiteCount++; else blackCount++;
+    }
+    if(whiteCount === 0){ endGame('Чёрные', 'все фигуры противника съедены'); return true; }
+    if(blackCount === 0){ endGame('Белые', 'все фигуры противника съедены'); return true; }
+    return false;
+  }
+}
+
+/* ---------------- Legal moves delegator ---------------- */
+function getLegalMoves(sr,sc){
+  if(!inBounds(sr,sc)) return [];
+  const piece = board[sr][sc];
+  if(!piece || piece=='.') return [];
+  return gameType === 'chess' ? getChessMoves(sr,sc) : getCheckersMoves(sr,sc);
+}
+
+/* ---------------- Click handling ---------------- */
+function onCellClick(r,c){
+  if(gameOver){ infoEl.textContent = 'Игра окончена — нажмите "Новая игра"'; return; }
+  const clicked = board[r][c];
+  if(!selected){
+    if(clicked==='.' || clicked===undefined){ infoEl.textContent='Пустая клетка'; return; }
+    if((whiteTurn && !isWhitePiece(clicked)) || (!whiteTurn && !isBlackPiece(clicked))){ infoEl.textContent='Это не ваша фигура'; return; }
+    selected = {r,c, piece: clicked};
+    infoEl.textContent='Фигура выбрана';
+    render();
+    return;
+  }
+
+  // deselect
+  if(selected.r === r && selected.c === c){ selected=null; infoEl.textContent='Снято'; render(); return; }
+
+  const moves = getLegalMoves(selected.r, selected.c);
+  const found = moves.find(m => m.r===r && m.c===c);
+  if(!found){ selected = null; infoEl.textContent='Нельзя так ходить'; render(); return; }
+
+  // apply move
+  if(gameType === 'chess'){
+    // detect capture of king for immediate end
+    const target = board[r][c];
+    makeMove(selected.r, selected.c, r, c);
+    // if castling, flags are handled inside makeMove
+    selected = null;
+    if(!gameOver){
+      whiteTurn = !whiteTurn;
+      render();
+      if(!checkEnd()) maybeBotMove();
+    } else render();
+    return;
+  } else {
+    // checkers: apply chain or single move
+    if(found.chain){
+      makeMove(selected.r, selected.c, r, c, {chain: found.chain});
+    } else {
+      makeMove(selected.r, selected.c, r, c);
+    }
+    // after applying a chain, we already removed captured pieces. According to rule, victory only when all pieces eaten.
+    // For chaining, we used maximal chains; turn always switches after applying the chain.
+    selected = null;
+    if(!gameOver){
+      whiteTurn = !whiteTurn;
+      render();
+      if(!checkEnd()) maybeBotMove();
+    } else render();
+    return;
+  }
+}
+
+/* ---------------- Bot (simple levels) ---------------- */
+function allMovesForSide(whiteSide){
+  const res = [];
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const p = board[r][c]; if(!p||p=='.') continue;
+    if( (whiteSide && isWhitePiece(p)) || (!whiteSide && isBlackPiece(p)) ){
+      const moves = getLegalMoves(r,c);
+      for(const m of moves) res.push({sr:r,sc:c,tr:m.r,tc:m.c, piece:p, chain: m.chain || null});
+    }
+  }
+  return res;
+}
+
+function evaluateSimple(b, whiteForEval){
+  let score = 0;
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const p = b[r][c]; if(!p||p=='.') continue;
+    if(gameType==='chess'){
+      const v = {'p':1,'n':3,'b':3,'r':5,'q':9,'k':50}[p.toLowerCase()] || 0;
+      if(p === p.toUpperCase()) score += v; else score -= v;
+    } else {
+      const v = p.endsWith('_king') ? 2 : 1;
+      if(p.startsWith('w_')) score += v; else score -= v;
+    }
+  }
+  return whiteForEval ? score : -score;
+}
+
+function botMove(){
+  if(gameOver) return;
+  const bIsWhite = !playerPlaysWhite;
+  const moves = allMovesForSide(bIsWhite);
+  if(!moves.length){ if(!gameOver) endGame(whiteTurn ? 'Чёрные' : 'Белые', 'нет ходов у бота'); return; }
+  let chosen = null;
+  if(botLevel === 1){ chosen = moves[Math.floor(Math.random()*moves.length)]; }
+  else if(botLevel === 2){
+    const caps = moves.filter(m => (gameType==='checkers' && m.chain) || (gameType==='chess' && board[m.tr][m.tc] !== '.'));
+    chosen = (caps.length ? caps[Math.floor(Math.random()*caps.length)] : moves[Math.floor(Math.random()*moves.length)]);
+  } else {
+    let best = -Infinity;
+    for(const mv of moves){
+      const nb = cloneBoard(board);
+      if(gameType==='chess'){ nb[mv.tr][mv.tc] = nb[mv.sr][mv.sc]; nb[mv.sr][mv.sc] = '.'; }
+      else {
+        if(mv.chain){
+          let curR = mv.sr, curC = mv.sc; nb[curR][curC] = '.';
+          for(const st of mv.chain){ nb[st.capturedAt[0]][st.capturedAt[1]] = '.'; curR = st.r; curC = st.c; }
+          nb[curR][curC] = mv.piece;
+        } else { nb[mv.tr][mv.tc] = nb[mv.sr][mv.sc]; nb[mv.sr][mv.sc] = '.'; }
+      }
+      const val = evaluateSimple(nb, bIsWhite);
+      if(val > best){ best = val; chosen = mv; }
+    }
+    if(!chosen) chosen = moves[Math.floor(Math.random()*moves.length)];
+  }
+
+  if(chosen){
+    if(gameType==='chess') makeMove(chosen.sr, chosen.sc, chosen.tr, chosen.tc);
+    else makeMove(chosen.sr, chosen.sc, chosen.tr, chosen.tc, {chain: chosen.chain});
+    if(!gameOver){ whiteTurn = !whiteTurn; render(); checkEnd(); } else render();
+  }
+}
+
+function maybeBotMove(){
+  if(mode !== 'pve' || gameOver) return;
+  const botIsWhite = !playerPlaysWhite;
+  if((whiteTurn && botIsWhite) || (!whiteTurn && !botIsWhite)){
+    setTimeout(()=>{ if(!gameOver) botMove(); }, 300);
+  }
+}
+
+/* ---------------- Timer ---------------- */
+function timerTick(){
+  if(gameOver) return;
+  if(whiteTime > 0 && blackTime > 0){
+    if(whiteTurn){ whiteTime--; if(whiteTime<=0){ endGame('Чёрные','по времени'); } }
+    else { blackTime--; if(blackTime<=0){ endGame('Белые','по времени'); } }
+    render();
+  }
+}
+
+/* ---------------- UI controls ---------------- */
+document.getElementById('startBtn').addEventListener('click', ()=> startGame());
+document.getElementById('undoBtn').addEventListener('click', ()=> {
+  if(gameOver) return;
+  const last = moveHistory.pop();
+  if(!last) return;
+  board = last.board;
+  whiteTurn = last.whiteTurn;
+  // restore castling flags
+  whiteKingMoved = last.whiteKingMoved;
+  blackKingMoved = last.blackKingMoved;
+  whiteRookA_moved = last.whiteRookA_moved;
+  whiteRookH_moved = last.whiteRookH_moved;
+  blackRookA_moved = last.blackRookA_moved;
+  blackRookH_moved = last.blackRookH_moved;
+  render();
+});
+document.getElementById('resignBtn').addEventListener('click', ()=> {
+  if(gameOver) return;
+  if(confirm('Сдаться?')) endGame((whiteTurn ? 'Чёрные' : 'Белые'), 'сдача');
+});
+document.getElementById('toMenuBtn').addEventListener('click', ()=> {
+  clearInterval(timerInterval);
+  infoEl.textContent = 'Меню';
+});
+
+/* ---------------- Start game ---------------- */
+function startGame(){
+  gameType = document.getElementById('gameType').value;
+  pieceStyle = document.getElementById('pieceStyle').value;
+  boardColor = document.getElementById('boardColor').value;
+  mode = document.getElementById('mode').value;
+  botLevel = parseInt(document.getElementById('botLevel').value);
+  playerPlaysWhite = document.getElementById('playerColor').value === 'white';
+  const minutes = parseInt(document.getElementById('gameTime').value);
+  if(minutes > 0){ whiteTime = blackTime = minutes * 60; } else { whiteTime = blackTime = -1; }
+  whiteTurn = true; selected = null; moveHistory = []; clearInterval(timerInterval); gameOver = false;
+  if(whiteTime > 0) timerInterval = setInterval(timerTick, 1000);
+  if(gameType === 'chess') setupChessBoard(); else setupCheckersBoard();
+  render(); infoEl.textContent = 'Игра начата: ' + (gameType==='chess' ? 'Шахматы' : 'Шашки');
+  // if PvE and bot plays white, bot moves first
+  if(mode === 'pve' && !playerPlaysWhite){ setTimeout(()=> maybeBotMove(), 300); }
+}
+
+/* ---------------- Launch on load ---------------- */
+startGame();
+
+</script>
+</body>
+</html>

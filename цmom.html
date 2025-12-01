@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Шахматы & Шашки — бот играет за противника (исправлено)</title>
+<style>
+  :root{
+    --bg:#0b0714; --panel:#1b1026; --accent:#7d3fff; --muted:#cfc3e8; --white:#fff;
+    --lightTile:#ecdfff; --darkTile:#4b2b57;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,Segoe UI,Arial,Helvetica;background:linear-gradient(180deg,#080614 0%,#151019 100%);color:var(--muted);display:flex;flex-direction:column;align-items:center;padding:18px;min-height:100vh}
+  header{width:100%;max-width:1200px;text-align:center;margin-bottom:12px}
+  h1{margin:0;color:var(--white);font-size:20px}
+  .controls{background:var(--panel);padding:12px;border-radius:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;max-width:1200px;margin-bottom:12px}
+  label{font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+  select,input,button{padding:8px;border-radius:8px;border:0;background:#2a2033;color:var(--white);min-width:120px}
+  button.primary{background:var(--accent);font-weight:700}
+  .right{margin-left:auto;display:flex;gap:8px;align-items:center}
+  #wrap{display:flex;gap:16px;align-items:flex-start;width:100%;max-width:1200px}
+  .boardWrap{display:grid;grid-template-columns:28px repeat(8,64px) 28px;grid-template-rows:28px repeat(8,64px) 28px;gap:0}
+  .label{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px}
+  .square{width:64px;height:64px;display:flex;align-items:center;justify-content:center;font-size:36px;cursor:pointer;user-select:none}
+  .square:hover{transform:translateY(-2px);transition:transform .06s}
+  .selected{outline:3px solid rgba(255,223,93,0.95);outline-offset:-3px}
+  .highlight{box-shadow:inset 0 0 0 4px rgba(0,255,0,.12)}
+  .sideBar{display:flex;flex-direction:column;gap:8px;min-width:260px}
+  .timer{padding:10px;background:rgba(255,255,255,0.03);border-radius:8px;text-align:center}
+  .small{font-size:13px;color:#cfc9de}
+  .status{padding:8px;border-radius:8px;background:rgba(255,255,255,0.02);color:var(--muted);font-size:14px}
+  .hintBox{background:rgba(125,63,255,0.06);padding:8px;border-radius:8px}
+  footer{margin-top:18px;color:#9c93ae;font-size:13px}
+  .whitePiece{color:var(--white);text-shadow:0 0 6px rgba(255,255,255,0.06);font-weight:700}
+  .blackPiece{color:#0b0b0b;text-shadow:0 0 2px rgba(0,0,0,0.6);font-weight:700}
+  @media (max-width:980px){
+    .boardWrap{grid-template-columns:20px repeat(8,48px) 20px;grid-template-rows:20px repeat(8,48px) 20px}
+    .square{width:48px;height:48px;font-size:28px}
+  }
+</style>
+</head>
+<body>
+<header><h1>♟ Шахматы & ⛀ Шашки — бот играет за противника (исправлено)</h1></header>
+
+<div class="controls">
+  <label>Игра:
+    <select id="gameType">
+      <option value="chess" selected>Шахматы</option>
+      <option value="checkers">Шашки</option>
+    </select>
+  </label>
+
+  <label>Режим:
+    <select id="mode">
+      <option value="pvp">PvP (на одном устройстве)</option>
+      <option value="pve">PvE (против бота)</option>
+    </select>
+  </label>
+
+  <label>Игрок:
+    <select id="playerColor">
+      <option value="white" selected>Игрок — Белые</option>
+      <option value="black">Игрок — Чёрные</option>
+    </select>
+  </label>
+
+  <label>Уровень бота:
+    <select id="botLevel">
+      <option value="1">1 — Лёгкий</option>
+      <option value="2" selected>2 — Средний</option>
+      <option value="3">3 — Сильный</option>
+    </select>
+  </label>
+
+  <div class="right">
+    <button id="startBtn" class="primary">Новая игра</button>
+    <button id="undoBtn" disabled>Отменить</button>
+    <button id="micBtn">🎤 Голос</button>
+    <button id="hintBtn">💡 Подсказка</button>
+  </div>
+</div>
+
+<div id="wrap">
+  <div id="boardArea" class="boardWrap" aria-label="Игровая доска"></div>
+
+  <div class="sideBar">
+    <div class="timer">Ход: <strong id="turnLabel">—</strong></div>
+    <div class="status small">Инфо: <span id="info">Готов</span></div>
+    <div class="hintBox small" id="hintBox">Подсказки выключены</div>
+    <div style="display:flex;gap:8px">
+      <button id="resignBtn">Сдаться</button>
+      <button id="menuBtn">Меню</button>
+    </div>
+    <div class="small">Голос: e2 to e4 / е два в е четыре. Откройте в Chrome/Edge.</div>
+  </div>
+</div>
+
+<footer>Исправлено: бот теперь ходит за противоположную сторону (игрок — выбранный цвет).</footer>
+
+<script>
+/* --- pieces/names --- */
+const PIECES_EMOJI = { P:'♙',R:'♖',N:'♘',B:'♗',Q:'♕',K:'♔', p:'♟',r:'♜',n:'♞',b:'♝',q:'♛',k:'♚', w_man:'⛀',b_man:'⛂',w_king:'⛁',b_king:'⛃' };
+const PIECE_NAMES = {
+  K:{en:'King',ru:'Король'}, Q:{en:'Queen',ru:'Ферзь'}, R:{en:'Rook',ru:'Ладья'},
+  B:{en:'Bishop',ru:'Слон'}, N:{en:'Knight',ru:'Конь'}, P:{en:'Pawn',ru:'Пешка'},
+  k:{en:'King',ru:'Король'}, q:{en:'Queen',ru:'Ферзь'}, r:{en:'Rook',ru:'Ладья'},
+  b:{en:'Bishop',ru:'Слон'}, n:{en:'Knight',ru:'Конь'}, p:{en:'Pawn',ru:'Пешка'},
+  w_man:{en:'White man',ru:'Белая шашка'}, b_man:{en:'Black man',ru:'Чёрная шашка'},
+  w_king:{en:'White king',ru:'Белая дамка'}, b_king:{en:'Black king',ru:'Чёрная дамка'}
+};
+
+/* --- state --- */
+let board = [];
+let gameType = 'chess';
+let mode = 'pve';
+let botLevel = 2;
+let training = 'off';
+
+let selected = null;
+let whiteTurn = true;
+let gameOver = false;
+let moveHistory = [];
+
+let playerPlaysWhite = true; // NEW: whether human plays white
+let botIsWhite = false;      // NEW: derived as !playerPlaysWhite
+
+const boardArea = document.getElementById('boardArea');
+const infoEl = document.getElementById('info');
+const turnLabel = document.getElementById('turnLabel');
+const hintBox = document.getElementById('hintBox');
+const undoBtn = document.getElementById('undoBtn');
+
+/* --- helpers --- */
+function inBounds(r,c){ return r>=0 && r<8 && c>=0 && c<8; }
+function cloneBoard(b){ return b.map(r=>r.slice()); }
+function isWhitePiece(p){ if(!p||p=='.') return false; if(gameType==='chess') return p===p.toUpperCase(); return p.startsWith('w_'); }
+function isBlackPiece(p){ if(!p||p=='.') return false; if(gameType==='chess') return p===p.toLowerCase(); return p.startsWith('b_'); }
+function pieceLabel(p){ if(!p||p=='.') return ''; const nm = PIECE_NAMES[p]; return nm ? `${nm.en} / ${nm.ru}` : p; }
+
+/* --- setup boards --- */
+function setupChess(){ board = [['r','n','b','q','k','b','n','r'],['p','p','p','p','p','p','p','p'],['.','.','.','.','.','.','.','.'],['.','.','.','.','.','.','.','.'],['.','.','.','.','.','.','.','.'],['.','.','.','.','.','.','.','.'],['P','P','P','P','P','P','P','P'],['R','N','B','Q','K','B','N','R']]; }
+function setupCheckers(){ board = Array.from({length:8},()=>Array(8).fill('.')); for(let r=0;r<3;r++) for(let c=0;c<8;c++) if((r+c)%2===1) board[r][c]='b_man'; for(let r=5;r<8;r++) for(let c=0;c<8;c++) if((r+c)%2===1) board[r][c]='w_man'; }
+
+/* --- render --- */
+function createLabel(text){ const d=document.createElement('div'); d.className='label'; d.textContent=text; return d; }
+function render(){
+  boardArea.innerHTML='';
+  boardArea.appendChild(createLabel(''));
+  for(let c=0;c<8;c++) boardArea.appendChild(createLabel(String.fromCharCode('a'.charCodeAt(0)+c)));
+  boardArea.appendChild(createLabel(''));
+  for(let r=0;r<8;r++){
+    boardArea.appendChild(createLabel(String(8-r)));
+    for(let c=0;c<8;c++){
+      const sq=document.createElement('div'); sq.className='square';
+      const light=getComputedStyle(document.documentElement).getPropertyValue('--lightTile')||'#ecdfff';
+      const dark=getComputedStyle(document.documentElement).getPropertyValue('--darkTile')||'#4b2b57';
+      sq.style.background = ((r+c)%2===0)? light : dark;
+      const p = board[r][c];
+      if(p && p !== '.'){ sq.textContent = PIECES_EMOJI[p] || p; if(isWhitePiece(p)) sq.classList.add('whitePiece'); else sq.classList.add('blackPiece'); sq.title = pieceLabel(p); }
+      else { sq.textContent=''; sq.title=''; }
+      if(selected && selected.r===r && selected.c===c) sq.classList.add('selected');
+      if(selected){ const moves = getLegalMoves(selected.r, selected.c); for(const m of moves) if(m.r===r && m.c===c) sq.classList.add('highlight'); }
+      (function(rr,cc){
+        sq.addEventListener('click', ()=> onCellClick(rr,cc));
+        sq.addEventListener('mouseenter', ()=> { const p2 = board[rr][cc]; hintBox.textContent = p2 && p2!=='.' ? pieceLabel(p2) : (training==='off' ? 'При наведении — название фигуры' : hintBox.textContent); });
+        sq.addEventListener('mouseleave', ()=> { if(training==='off') hintBox.textContent = 'Подсказки ' + (training==='off' ? 'выключены' : training); });
+      })(r,c);
+      boardArea.appendChild(sq);
+    }
+    boardArea.appendChild(createLabel(String(8-r)));
+  }
+  boardArea.appendChild(createLabel(''));
+  for(let c=0;c<8;c++) boardArea.appendChild(createLabel(String.fromCharCode('a'.charCodeAt(0)+c)));
+  boardArea.appendChild(createLabel(''));
+  turnLabel.textContent = gameOver ? 'Игра окончена' : (whiteTurn ? 'Белые' : 'Чёрные');
+  undoBtn.disabled = moveHistory.length === 0 || gameOver;
+}
+
+/* --- chess rules (basic) --- */
+function clearPath(sr,sc,tr,tc){ const dr=Math.sign(tr-sr), dc=Math.sign(tc-sc); let r=sr+dr, c=sc+dc; while(r!==tr||c!==tc){ if(board[r][c] !== '.') return false; r+=dr; c+=dc; } return true; }
+function canMoveChess(sr,sc,tr,tc){
+  if(!inBounds(sr,sc)||!inBounds(tr,tc)) return false;
+  if(sr===tr&&sc===tc) return false;
+  const piece = board[sr][sc]; if(!piece||piece=='.') return false;
+  const target=board[tr][tc]; if(target!=='.' && (isWhitePiece(target)===isWhitePiece(piece))) return false;
+  const dr=tr-sr, dc=tc-sc, aR=Math.abs(dr), aC=Math.abs(dc); const p = piece.toLowerCase();
+  if(p==='p'){
+    if(piece===piece.toUpperCase()){
+      if(dc===0 && dr===-1 && board[tr][tc]==='.') return true;
+      if(dc===0 && dr===-2 && sr===6 && board[sr-1][sc]==='.' && board[tr][tc]==='.') return true;
+      if(Math.abs(dc)===1 && dr===-1 && board[tr][tc] !== '.' && isBlackPiece(board[tr][tc])) return true;
+    } else {
+      if(dc===0 && dr===1 && board[tr][tc]==='.') return true;
+      if(dc===0 && dr===2 && sr===1 && board[sr+1][sc]==='.' && board[tr][tc]==='.') return true;
+      if(Math.abs(dc)===1 && dr===1 && board[tr][tc] !== '.' && isWhitePiece(board[tr][tc])) return true;
+    }
+    return false;
+  }
+  if(p==='r') return (dr===0||dc===0) && clearPath(sr,sc,tr,tc);
+  if(p==='b') return (aR===aC) && clearPath(sr,sc,tr,tc);
+  if(p==='q') return (dr===0||dc===0||aR===aC) && clearPath(sr,sc,tr,tc);
+  if(p==='n') return (aR===2&&aC===1)||(aR===1&&aC===2);
+  if(p==='k') return aR<=1 && aC<=1;
+  return false;
+}
+function getChessMoves(sr,sc){ const moves=[]; for(let tr=0;tr<8;tr++) for(let tc=0;tc<8;tc++) if(canMoveChess(sr,sc,tr,tc)) moves.push({r:tr,c:tc}); return moves; }
+
+/* --- checkers rules --- */
+function getCheckersMoves(sr,sc){
+  const piece = board[sr][sc]; if(!piece||piece=='.') return [];
+  const moves = []; const dirs = []; const isKing = piece.endsWith('_king');
+  if(isWhitePiece(piece)){ if(isKing) dirs.push([-1,-1],[-1,1],[1,-1],[1,1]); else dirs.push([-1,-1],[-1,1]); }
+  else { if(isKing) dirs.push([-1,-1],[-1,1],[1,-1],[1,1]); else dirs.push([1,-1],[1,1]); }
+
+  const captures=[];
+  function tryJump(r,c,chain,bb){
+    let found=false;
+    for(const d of dirs){
+      const mr=r+d[0], mc=c+d[1], tr=r+2*d[0], tc=c+2*d[1];
+      if(inBounds(tr,tc) && inBounds(mr,mc)){
+        const mid=bb[mr][mc], dest=bb[tr][tc];
+        if(dest==='.' && mid!=='.' && (isWhitePiece(mid)!==isWhitePiece(piece))){
+          const nb = bb.map(rr=>rr.slice());
+          nb[tr][tc] = nb[r][c]; nb[r][c]='.'; nb[mr][mc]='.';
+          if(nb[tr][tc]==='w_man' && tr===0) nb[tr][tc]='w_king';
+          if(nb[tr][tc]==='b_man' && tr===7) nb[tr][tc]='b_king';
+          const deeper = tryJump(tr,tc,chain.concat([{r:tr,c:tc,capturedAt:[mr,mc]}]), nb);
+          if(!deeper) captures.push(chain.concat([{r:tr,c:tc,capturedAt:[mr,mc]}]));
+          found=true;
+        }
+      }
+    }
+    return found;
+  }
+  tryJump(sr,sc,[],board);
+  if(captures.length){ const unique=[]; for(const ch of captures){ const last = ch[ch.length-1]; unique.push({r:last.r,c:last.c,chain:ch}); } return unique; }
+  if(!existsAnyCapture()){ for(const d of dirs){ const tr=sr+d[0], tc=sc+d[1]; if(inBounds(tr,tc) && board[tr][tc]==='.') moves.push({r:tr,c:tc}); } }
+  return moves;
+}
+function existsAnyCapture(){
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){ const p=board[r][c]; if(!p||p=='.') continue; if((whiteTurn && isWhitePiece(p)) || (!whiteTurn && isBlackPiece(p))){ const dirs = p.endsWith('_king')? [[-1,-1],[-1,1],[1,-1],[1,1]] : (isWhitePiece(p)? [[-1,-1],[-1,1]] : [[1,-1],[1,1]]); for(const d of dirs){ const mr=r+d[0], mc=c+d[1], tr=r+2*d[0], tc=c+2*d[1]; if(inBounds(tr,tc)&&inBounds(mr,mc)){ const mid=board[mr][mc], dest=board[tr][tc]; if(dest==='.' && mid!=='.' && (isWhitePiece(mid)!==isWhitePiece(p))) return true; } } } } return false;
+}
+
+/* --- delegator --- */
+function getLegalMoves(sr,sc){
+  if(!inBounds(sr,sc)) return [];
+  const p = board[sr][sc]; if(!p||p=='.') return [];
+  return gameType === 'chess' ? getChessMoves(sr,sc) : getCheckersMoves(sr,sc);
+}
+
+/* --- move (with history) --- */
+function makeMove(sr,sc,tr,tc, extra={}){
+  moveHistory.push({board:cloneBoard(board), whiteTurn});
+  if(gameType === 'chess'){
+    const piece = board[sr][sc];
+    const captured = board[tr][tc];
+    let moved = piece;
+    if(piece === 'P' && tr === 0) moved = 'Q';
+    if(piece === 'p' && tr === 7) moved = 'q';
+    board[tr][tc] = moved; board[sr][sc] = '.';
+    if(captured === 'K' || captured === 'k'){ render(); endGame(whiteTurn ? 'Белые' : 'Чёрные','Король съеден'); return; }
+  } else {
+    const piece = board[sr][sc];
+    if(extra && extra.chain){
+      let curR = sr, curC = sc; board[curR][curC]='.';
+      for(const step of extra.chain){ board[step.capturedAt[0]][step.capturedAt[1]]='.'; curR=step.r; curC=step.c; }
+      board[curR][curC] = piece;
+      if(piece === 'w_man' && curR === 0) board[curR][curC] = 'w_king';
+      if(piece === 'b_man' && curR === 7) board[curR][curC] = 'b_king';
+    } else { board[tr][tc] = board[sr][sc]; board[sr][sc] = '.'; if(board[tr][tc] === 'w_man' && tr === 0) board[tr][tc]='w_king'; if(board[tr][tc] === 'b_man' && tr === 7) board[tr][tc]='b_king'; }
+  }
+}
+
+/* --- end/check --- */
+function endGame(winner, reason=''){ gameOver = true; infoEl.textContent = `Победа: ${winner}` + (reason?` (${reason})`:``); setTimeout(()=> alert(`Игра окончена. Победили: ${winner}${reason? ' — '+reason : ''}`), 30); }
+function checkEnd(){
+  if(gameType === 'chess'){
+    let w=0,b=0,wHas=false,bHas=false;
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){ const p=board[r][c]; if(!p||p=='.') continue; if(isWhitePiece(p)){ w++; if(!wHas && getLegalMoves(r,c).length) wHas=true; } else { b++; if(!bHas && getLegalMoves(r,c).length) bHas=true; } }
+    if(w===0 || !wHas){ endGame('Чёрные','нет ходов/фигур'); return true; }
+    if(b===0 || !bHas){ endGame('Белые','нет ходов/фигур'); return true; }
+    return false;
+  } else {
+    let w=0,b=0;
+    for(let r=0;r<8;r++) for(let c=0;c<8;c++){ const p=board[r][c]; if(!p||p=='.') continue; if(isWhitePiece(p)) w++; else b++; }
+    if(w===0){ endGame('Чёрные','все фигуры противника съедены'); return true; }
+    if(b===0){ endGame('Белые','все фигуры противника съедены'); return true; }
+    return false;
+  }
+}
+
+/* --- click handler --- */
+function onCellClick(r,c){
+  if(gameOver){ infoEl.textContent = 'Игра окончена — нажмите \"Новая игра\"'; return; }
+  const clicked = board[r][c];
+  if(!selected){
+    if(!clicked || clicked === '.'){ infoEl.textContent='Пустая клетка'; return; }
+    if((whiteTurn && !isWhitePiece(clicked)) || (!whiteTurn && !isBlackPiece(clicked))){ infoEl.textContent='Это не ваша фигура'; return; }
+    selected = {r,c, piece: clicked};
+    infoEl.textContent = pieceLabel(clicked);
+    render();
+    return;
+  }
+  if(selected.r === r && selected.c === c){ selected = null; infoEl.textContent='Снято'; render(); return; }
+  const moves = getLegalMoves(selected.r, selected.c);
+  const found = moves.find(m => m.r===r && m.c===c);
+  if(!found){ selected = null; infoEl.textContent='Нельзя так ходить'; render(); return; }
+  makeMove(selected.r, selected.c, r, c, found.chain ? {chain: found.chain} : {});
+  selected = null;
+  if(!gameOver){
+    whiteTurn = !whiteTurn;
+    render();
+    if(!checkEnd()) setTimeout(()=> maybeBotMove(), 200);
+  } else render();
+}
+
+/* --- bot (plays for botIsWhite) --- */
+function allMovesForSide(whiteSide){
+  const res=[];
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){
+    const p = board[r][c]; if(!p||p=='.') continue;
+    if((whiteSide && isWhitePiece(p)) || (!whiteSide && isBlackPiece(p))){
+      const ms = getLegalMoves(r,c);
+      for(const m of ms) res.push({sr:r,sc:c,tr:m.r,tc:m.c,chain:m.chain||null, piece:p});
+    }
+  }
+  return res;
+}
+function evaluateSimple(b){
+  let sc=0;
+  for(let r=0;r<8;r++) for(let c=0;c<8;c++){ const p=b[r][c]; if(!p||p=='.') continue;
+    if(gameType==='chess'){ const vals={'p':1,'n':3,'b':3,'r':5,'q':9,'k':50}; sc += (p===p.toUpperCase()? (vals[p.toLowerCase()]||0) : -(vals[p.toLowerCase()]||0)); }
+    else { const v = p.endsWith('_king')?2:1; sc += (p.startsWith('w_')? v : -v); }
+  } return sc;
+}
+function botMove(){
+  if(gameOver) return;
+  const level = parseInt(document.getElementById('botLevel').value||2);
+  const side = botIsWhite; // IMPORTANT: moves for bot's color
+  const moves = allMovesForSide(side);
+  if(!moves.length){ if(!gameOver) endGame(whiteTurn ? 'Чёрные' : 'Белые', 'нет ходов у бота'); return; }
+  let chosen = null;
+  if(level===1) chosen = moves[Math.floor(Math.random()*moves.length)];
+  else if(level===2){
+    const caps = moves.filter(m => (gameType==='checkers' && m.chain) || (gameType==='chess' && board[m.tr][m.tc] !== '.'));
+    chosen = caps.length ? caps[Math.floor(Math.random()*caps.length)] : moves[Math.floor(Math.random()*moves.length)];
+  } else {
+    let best=-Infinity;
+    for(const mv of moves){
+      const nb = cloneBoard(board);
+      if(gameType==='chess'){ nb[mv.tr][mv.tc] = nb[mv.sr][mv.sc]; nb[mv.sr][mv.sc] = '.'; }
+      else {
+        if(mv.chain){ let cr=mv.sr, cc=mv.sc; nb[cr][cc]='.'; for(const st of mv.chain) nb[st.capturedAt[0]][st.capturedAt[1]]='.'; nb[mv.tr][mv.tc]=mv.piece; }
+        else { nb[mv.tr][mv.tc] = nb[mv.sr][mv.sc]; nb[mv.sr][mv.sc] = '.'; }
+      }
+      const val = evaluateSimple(nb);
+      if(val > best){ best = val; chosen = mv; }
+    }
+    if(!chosen) chosen = moves[Math.floor(Math.random()*moves.length)];
+  }
+  if(chosen){
+    makeMove(chosen.sr, chosen.sc, chosen.tr, chosen.tc, chosen.chain?{chain:chosen.chain}:{});
+    whiteTurn = !whiteTurn;
+    render();
+    checkEnd();
+  }
+}
+
+/* --- maybeBotMove: only when it's bot's turn --- */
+function maybeBotMove(){
+  if(document.getElementById('mode').value !== 'pve' || gameOver) return;
+  // bot plays when the color to move equals botIsWhite
+  if(whiteTurn === botIsWhite){
+    setTimeout(()=> botMove(), 300);
+  }
+}
+
+/* --- hints/training --- */
+function allMovesForSideSimple(whiteSide){ return allMovesForSide(whiteSide); }
+function bestMoveForSide(whiteSide){
+  const moves = allMovesForSideSimple(whiteSide); if(!moves.length) return null;
+  let best=null, bestVal=-Infinity;
+  for(const mv of moves){
+    const nb = cloneBoard(board);
+    if(gameType==='chess'){ nb[mv.tr][mv.tc]=nb[mv.sr][mv.sc]; nb[mv.sr][mv.sc]='.'; }
+    else {
+      if(mv.chain){ let cr=mv.sr, cc=mv.sc; nb[cr][cc]='.'; for(const st of mv.chain) nb[st.capturedAt[0]][st.capturedAt[1]]='.'; nb[mv.tr][mv.tc]=mv.piece; }
+      else { nb[mv.tr][mv.tc]=nb[mv.sr][mv.sc]; nb[mv.sr][mv.sc]='.'; }
+    }
+    const val = evaluateSimple(nb);
+    if(val > bestVal){ bestVal = val; best = mv; }
+  }
+  return best;
+}
+
+/* --- voice (ru/en) --- */
+let recognition = null, recognizing = false;
+const cyrToLat = {'а':'a','б':'b','в':'b','г':'g','д':'d','е':'e','ё':'e','ж':'j','з':'z','и':'i','й':'j','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'c','ч':'ch','ш':'sh'};
+const numberWords = {'1':7,'2':6,'3':5,'4':4,'5':3,'6':2,'7':1,'8':0,'one':7,'two':6,'three':5,'four':4,'five':3,'six':2,'seven':1,'eight':0,'один':7,'два':6,'три':5,'четыре':4,'пять':3,'шесть':2,'семь':1,'восемь':0};
+
+function fileLetterToCol(ch){ if(!ch) return null; ch = ch.toLowerCase().trim(); if(ch >= 'a' && ch <= 'h') return ch.charCodeAt(0)-'a'.charCodeAt(0); if(cyrToLat[ch]){ const lat=cyrToLat[ch]; if(lat>='a'&&lat<='h') return lat.charCodeAt(0)-'a'.charCodeAt(0); } const clean = ch.replace(/[^a-zа-яё]/gi,'').toLowerCase(); if(clean.length===1) return fileLetterToCol(clean); return null; }
+
+function parseCoordsFromText(text){
+  if(!text) return null;
+  let t=text.toLowerCase().replace(/[.,;]/g,' ').trim();
+  const quick = t.match(/([a-zа-яё])\s*([1-8])\s*(?:to|в|на|->|–|—| )\s*([a-zа-яё])\s*([1-8])/i);
+  if(quick){ const c1=fileLetterToCol(quick[1]), r1=numberWords[quick[2]], c2=fileLetterToCol(quick[3]), r2=numberWords[quick[4]]; if(c1!==null && r1!==undefined && c2!==null && r2!==undefined) return {from:{r:r1,c:c1}, to:{r:r2,c:c2}}; }
+  const pairRegex = /([a-zа-яё])\s*([1-8])/ig; const pairs=[]; let m; while((m=pairRegex.exec(t))!==null){ const f=m[1], n=m[2]; const c=fileLetterToCol(f); const r=numberWords[n]; if(c!==null && r!==undefined) pairs.push({r,c}); }
+  if(pairs.length>=2) return {from:pairs[0], to:pairs[1]};
+  const tokens=t.split(/\s+/).filter(Boolean); const coords=[];
+  for(let i=0;i<tokens.length;i++){ const tok=tokens[i].replace(/[^a-zа-яё0-9]/gi,''); if(!tok) continue; const col=fileLetterToCol(tok[0]); let row=null; if(i+1<tokens.length){ const n=tokens[i+1].replace(/[^a-z0-9а-яё]/gi,''); if(numberWords[n]!==undefined) row = numberWords[n]; } if(col!==null && row!==null){ coords.push({r:row,c:col}); i++; } if(coords.length>=2) break; }
+  if(coords.length>=2) return {from:coords[0], to:coords[1]}; return null;
+}
+function coordToAlgebraic(coord){ if(!coord) return ''; return String.fromCharCode('a'.charCodeAt(0)+coord.c) + (8 - coord.r); }
+
+function initVoice(){
+  window.SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if(!window.SpeechRecognition){ infoEl.textContent = 'Voice не поддерживается в этом браузере'; return; }
+  recognition = new window.SpeechRecognition();
+  recognition.lang = 'ru-RU';
+  recognition.continuous = true;
+  recognition.interimResults = false;
+  recognition.maxAlternatives = 1;
+  recognition.onstart = ()=>{ recognizing=true; document.getElementById('micBtn').textContent='■ Стоп'; infoEl.textContent='Голос: слушаю...'; };
+  recognition.onend = ()=>{ recognizing=false; document.getElementById('micBtn').textContent='🎤 Голос'; infoEl.textContent='Голос: остановлен'; };
+  recognition.onerror = (e)=>{ console.warn(e); infoEl.textContent = 'Voice error: '+(e.error||e.message); };
+  recognition.onresult = (evt)=>{ const text = evt.results[evt.resultIndex][0].transcript.trim(); infoEl.textContent = 'Распознано: \"'+text+'\"'; handleVoice(text); };
+}
+function handleVoice(raw){
+  if(!raw) return;
+  const text = raw.trim().toLowerCase();
+  if(/undo|отмена/.test(text)){ if(moveHistory.length>0 && !gameOver){ const last=moveHistory.pop(); board=last.board; whiteTurn=last.whiteTurn; render(); infoEl.textContent='Отмена (голос)'; } else infoEl.textContent='Нет хода для отмены'; return; }
+  if(/reset|сброс|начать/.test(text)){ startGame(); infoEl.textContent='Новая игра (голос)'; return; }
+  if(/resign|сдаться/.test(text)){ if(confirm('Сдаться?')) endGame((whiteTurn? 'Чёрные':'Белые'),'сдача'); return; }
+  const parsed = parseCoordsFromText(text);
+  if(parsed){
+    const from=parsed.from, to=parsed.to;
+    const piece = board[from.r][from.c];
+    if(!piece||piece==='.'){ infoEl.textContent = `Нет фигуры на ${coordToAlgebraic(from)}`; return; }
+    if((whiteTurn && !isWhitePiece(piece)) || (!whiteTurn && !isBlackPiece(piece))){ infoEl.textContent='Это не ваша фигура'; return; }
+    const moves = getLegalMoves(from.r, from.c);
+    const found = moves.find(m => m.r===to.r && m.c===to.c);
+    if(!found){ infoEl.textContent = `Ход ${coordToAlgebraic(from)}→${coordToAlgebraic(to)} недопустим`; return; }
+    makeMove(from.r, from.c, to.r, to.c, found.chain?{chain:found.chain}:{} );
+    selected=null;
+    whiteTurn = !whiteTurn;
+    render();
+    checkEnd();
+    maybeBotMove();
+    infoEl.textContent = `Голосовой ход: ${coordToAlgebraic(from)} → ${coordToAlgebraic(to)}`;
+    return;
+  }
+  infoEl.textContent = 'Команду не распознано (пример: "e2 to e4" / "е два в е четыре")';
+}
+
+/* --- UI bindings --- */
+document.getElementById('startBtn').addEventListener('click', ()=> startGame());
+document.getElementById('undoBtn').addEventListener('click', ()=> { if(moveHistory.length>0 && !gameOver){ const last=moveHistory.pop(); board=last.board; whiteTurn = last.whiteTurn; render(); infoEl.textContent='Отмена'; } });
+document.getElementById('resignBtn').addEventListener('click', ()=> { if(confirm('Сдаться?')) endGame((whiteTurn? 'Чёрные' : 'Белые'),'сдача'); });
+document.getElementById('micBtn').addEventListener('click', ()=> { if(!recognition) initVoice(); if(!recognition) return; if(recognizing) recognition.stop(); else recognition.start(); });
+document.getElementById('hintBtn').addEventListener('click', ()=> { training = document.getElementById('training')?.value || 'off'; if(training==='off'){ hintBox.textContent='Подсказки выключены'; return; } if(training==='hints'){ const best = bestMoveForSide(whiteTurn); if(!best){ hintBox.textContent='Нет подсказок'; return; } hintBox.textContent = `Подсказка: ${coordToAlgebraic({r:best.sr,c:best.sc})} → ${coordToAlgebraic({r:best.tr,c:best.tc})}`; } else if(training==='practice'){ const best = bestMoveForSide(whiteTurn); if(!best){ hintBox.textContent='Нет хода для практики'; return; } hintBox.textContent = `Практика: повторите ход ${coordToAlgebraic({r:best.sr,c:best.sc})} → ${coordToAlgebraic({r:best.tr,c:best.tc})}`; window.expectedPractice={from:{r:best.sr,c:best.sc}, to:{r:best.tr,c:best.tc}}; } });
+
+/* --- start game --- */
+function startGame(){
+  gameType = document.getElementById('gameType').value;
+  mode = document.getElementById('mode').value;
+  botLevel = parseInt(document.getElementById('botLevel').value||2);
+  training = document.getElementById('training')?.value || 'off';
+  playerPlaysWhite = document.getElementById('playerColor')?.value !== 'black';
+  botIsWhite = !playerPlaysWhite;
+  selected = null; whiteTurn = true; gameOver = false; moveHistory = [];
+  if(gameType === 'chess') setupChess(); else setupCheckers();
+  hintBox.textContent = training === 'off' ? 'Подсказки выключены' : 'Режим: ' + training;
+  render(); infoEl.textContent = 'Игра начата: ' + (gameType === 'chess' ? 'Шахматы' : 'Шашки');
+  // if PvE and bot should play first (i.e. bot is white and white starts), call maybeBotMove
+  if(mode === 'pve' && whiteTurn === botIsWhite){ setTimeout(()=> maybeBotMove(), 300); }
+}
+
+/* --- init --- */
+startGame();
+initVoice();
+
+</script>
+</body>
+</html>

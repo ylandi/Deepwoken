@@ -1,0 +1,266 @@
+.hero {
+  position: relative;
+  height: 100vh;
+  background: url('173683-kosmos-chernyy-chernyj_i_belyj-stil-liniya-2560x1440.jpg') center/cover no-repeat;
+}
+
+.overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.hero-content {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #fff;
+}
+
+.hero h1 {
+  font-size: 2rem;
+  letter-spacing: 2px;
+  font-weight: 600;
+}
+
+.divider {
+  width: 60px;
+  height: 2px;
+  background: #fff;
+  margin: 20px auto 0;
+}
+
+
+.about {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 100px 10%;
+}
+
+.about-left {
+  width: 45%;
+}
+
+.about-left h3 {
+  color: #777;
+  font-weight: 400;
+}
+
+.about-left h2 {
+  font-size: 2.5rem;
+  margin: 10px 0;
+}
+
+.about-left p {
+  color: #555;
+  line-height: 1.6;
+}
+
+.about-right {
+  position: relative;
+  width: 45%;
+}
+
+.img-block {
+  position: relative;
+  width: 100%;
+}
+
+.img-block img {
+  width: 100%;
+  border-radius: 8px;
+}
+
+.green-rectangle {
+  position: absolute;
+  top: 20%;
+  left: 20%;
+  width: 120px;
+  height: 120px;
+  background: #5bc26b;
+  z-index: -2;
+}
+.text {
+    width: 45%;
+    text-align: right;
+  }
+
+  .text h1 {
+    font-size: 36px;
+    margin: 0;
+    line-height: 1.1;
+  }
+
+  .text p {
+    font-size: 16px;
+    margin-top: 20px;
+    color: #f1f1f1;
+  }
+
+
+.container {
+    position: relative;
+    width: 400px;
+    height: 400px;
+    background: #ffffff; 
+    margin: 60px auto;
+    border-radius: 10px;
+    overflow: visible;
+  }
+
+  .container img {
+    position: absolute;
+    width: 200px;
+    border-radius: 12px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    transition: transform 0.3s ease;
+  }
+
+  .img1 {
+    top: 100px;
+    left: 60px;
+    z-index: 1;
+  }
+
+  .img2 {
+    top: 80px;
+    left: 100px;
+    z-index: 2;
+  }
+
+  .img3 {
+    top: 60px;
+    left: 140px;
+    z-index: 3;
+  }
+
+
+
+
+
+
+.services {
+  text-align: center;
+  padding: 80px 10%;
+  background: #fafafa;
+}
+
+.services h2 {
+  margin-bottom: 40px;
+}
+
+.services-container {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+}
+
+.service-box {
+  background: #fff;
+  border: 1px solid #eee;
+  padding: 40px 20px;
+  border-radius: 10px;
+  width: 260px;
+  transition: all 0.3s;
+}
+
+.service-box.active {
+  border: 2px solid #6ccf70;
+  transform: scale(1.05);
+}
+
+.service-box:hover {
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+}
+
+
+.works {
+  padding: 100px 10%;
+}
+
+.works h2 {
+  text-align: center;
+  margin-bottom: 60px;
+}
+
+.works-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 40px;
+}
+
+.work-item {
+  text-align: center;
+}
+
+.work-item img {
+  width: 100%;
+  border-radius: 10px;
+  filter: grayscale(100%);
+}
+
+.work-item h4 {
+  margin-top: 15px;
+  font-weight: 600;
+}
+
+.work-item p {
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.team {
+  background: #fafafa;
+  padding: 100px 10%;
+  text-align: center;
+}
+
+.team h2 {
+  margin-bottom: 60px;
+}
+
+.team-grid {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  flex-wrap: wrap;
+}
+
+.team-member img {
+  border-radius: 50%;
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+  filter: grayscale(100%);
+  margin-bottom: 10px;
+}
+
+.team-member h4 {
+  font-weight: 600;
+}
+
+.team-member p {
+  color: #999;
+  font-size: 0.9rem;
+}
+
+.footer {
+  text-align: center;
+  background: #111;
+  color: #fff;
+}
+
+.footer-top {
+  background: #6ccf70;
+  padding: 20px;
+}
+
+.footer-bottom {
+  background: #111;
+  padding: 40px 0;
+  font-size: 0.9rem;
+  color: #aaa;
+}
